@@ -1,84 +1,62 @@
 import { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, FlatList } from 'react-native';
-import { auth, db } from '../firebaseConfig';
+import { db } from '../firebaseConfig';
 import {
-  collection,
-  addDoc,
-  onSnapshot,
-  doc,
-  updateDoc,
-  deleteDoc,
-  query,
-  where,
+collection,
+addDoc,
+onSnapshot,
+doc,
+updateDoc,
+deleteDoc,
 } from 'firebase/firestore';
 import TaskCard from '../components/TaskCard';
-
 export default function AddTaskScreen() {
-  const [taskText, setTaskText] = useState('');
-  const [tasks, setTasks] = useState([]);
-  const [errorMessage, setErrorMessage] = useState('');
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [quote, setQuote] = useState("Loading today's motivation...");
+ const [taskText, setTaskText] = useState('');
+ const [tasks, setTasks] = useState([]);
+ const [errorMessage, setErrorMessage] = useState('');
+ const [isLoaded, setIsLoaded] = useState(false);
+ const [quote, setQuote] = useState("Loading today's motivation...");
 
-  useEffect(() => {
-    const user = auth.currentUser;
-    if (!user) return;
-    const tasksQuery = query(
-      collection(db, 'tasks'),
-      where('ownerId', '==', user.uid)
-    );
-    const unsubscribe = onSnapshot(
-      tasksQuery,
-      (snapshot) => {
-        const loadedTasks = snapshot.docs.map((docItem) => ({
-          id: docItem.id,
-          ...docItem.data(),
-        }));
-        setTasks(loadedTasks);
-      },
-      (error) => {
-        console.error('Firestore listener error:', error.message);
-      }
-    );
-    return () => unsubscribe();
-  }, []);
+useEffect(() => {
+const unsubscribe = onSnapshot(collection(db, 'tasks'), (snapshot) => {
+const loadedTasks = snapshot.docs.map((docItem) => ({
+id: docItem.id,
+...docItem.data(),
+}));
+setTasks(loadedTasks);
+});
+return unsubscribe;
+}, []);
 
-  useEffect(() => {
-    fetch('https://api.quotable.io/random')
-      .then((response) => response.json())
-      .then((data) => setQuote(data.content))
-      .catch(() => setQuote('Believe in yourself and get it done!'));
-  }, []);
+ useEffect(() => {
+ fetch('https://api.quotable.io/random')
+ .then((response) => response.json())
+ .then((data) => setQuote(data.content))
+ .catch(() => setQuote('Believe in yourself and get it done!'));
+ }, []);
 
-  async function handleAddTask() {
-    if (taskText.trim() === '') {
-      setErrorMessage('Please type a task before adding it.');
-      return;
-    }
-    const user = auth.currentUser;
-    if (!user) {
-      setErrorMessage('User session not found. Please log in again.');
-      return;
-    }
-    try {
-      await addDoc(collection(db, 'tasks'), {
-        title: taskText,
-        done: false,
-        ownerId: user.uid,
-      });
-      setTaskText('');
-      setErrorMessage('');
-    } catch (error) {
-      setErrorMessage(error.message);
-    }
-  }
-
- async function handleToggleTask(id, currentDone) {
- await updateDoc(doc(db, 'tasks', id), { done: !currentDone });
+ function handleAddTask() {
+ if (taskText.trim() === '') {
+ setErrorMessage('Please type a task before adding it.');
+ return;
+ }
+ const newTask = { id: Date.now().toString(), title: taskText, done: false };
+ setTasks([...tasks, newTask]);
+ setTaskText('');
+ setErrorMessage('');
+ //console.log('Adding task:', taskText);
  }
 
- async function handleDeleteTask(id) {
- await deleteDoc(doc(db, 'tasks', id));
+ function handleToggleTask(id) {
+ setTasks(
+ tasks.map((t) =>
+ t.id === id ? { ...t, done: !t.done } : t
+ )
+ );
+ }
+
+ function handleDeleteTask(id) { 
+ setTasks(tasks.filter((t) => t.id !== id)); 
  }
  return (
  <View style={styles.container}>
@@ -114,7 +92,7 @@ export default function AddTaskScreen() {
  <TaskCard
  title={item.title}
  done={item.done}
- onToggle={() => handleToggleTask(item.id, item.done)}
+ onToggle={() => handleToggleTask(item.id)}
  onDelete={() => handleDeleteTask(item.id)} 
  />
  )}
